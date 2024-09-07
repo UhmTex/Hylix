@@ -16,7 +16,7 @@ namespace Hylix_Bot
     internal class DBHandler
     {
 
-        readonly string dbconn = Environment.GetEnvironmentVariable("SUPABASE_DB");
+        readonly string dbconn = "Server=aws-0-eu-central-1.pooler.supabase.com;Port=6543;Username=postgres.xhtgynnynxkxrkecteps;Password=rNz15gvrWvpdN8md7HvP;Database=postgres;Timeout=300;Pooling=false;CommandTimeout=300";
 
         public async Task<bool> StoreUserAsync(User user)
         {
