@@ -14,7 +14,7 @@ namespace Hylix_Bot.Commands
 {
     public class SelfCommandsHandler : ApplicationCommandModule
     {
-        [SlashCommand("Profile", "Get your profile")]
+        [SlashCommand("Profile", "Get your profile information")]
         public async Task GetProfile(InteractionContext ctx)
         {
             var dbHandler = new DBHandler();
