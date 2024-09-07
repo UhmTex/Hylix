@@ -1,0 +1,14 @@
+﻿namespace Hylix_Bot.Database
+{
+    public class Monster
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Element { get; set; }
+        public ulong Element_Emoji { get; set; }
+        public string Species { get; set; }
+        public string Affiliation { get; set; }
+
+        public string Description { get; set; }
+    }
+}
