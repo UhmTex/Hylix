@@ -25,7 +25,7 @@ namespace Hylix_Bot
             var JSONReader = new JSONReader();
             await JSONReader.ReadJSON();            
 
-            string token = Environment.GetEnvironmentVariable("DISCORD_TOKEN");
+            string token = JSONReader.token;
             if (string.IsNullOrWhiteSpace(token))
             {
                 Console.WriteLine("Error: No discord token found!");
