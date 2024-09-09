@@ -4,7 +4,10 @@ using Supabase;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.IO;
+using System.Linq.Expressions;
 using System.Numerics;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,6 +18,7 @@ namespace Hylix_Bot
 
     internal class DBHandler
     {
+        private Random random = new Random();
 
         readonly string dbconn = "Server=aws-0-eu-central-1.pooler.supabase.com;Port=6543;Username=postgres.xhtgynnynxkxrkecteps;Password=rNz15gvrWvpdN8md7HvP;Database=postgres;Timeout=300;Pooling=false;CommandTimeout=300";
 
@@ -98,6 +102,31 @@ namespace Hylix_Bot
                     var query = $"UPDATE data.userdata SET class_id = {classId} WHERE user_id = {user.userId}";
 
                     using (var cmd = new NpgsqlCommand(query, conn))
+                    {
+                        await cmd.ExecuteNonQueryAsync();
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                WriteLine(ex.ToString());
+                return false;
+            }
+        }
+
+        public async Task<bool> UpdateUserGold(BigInteger userId, BigInteger quantity)
+        {
+            try 
+            {
+                using (var db = new NpgsqlConnection(dbconn))
+                {
+                    await db.OpenAsync();
+
+                    var query = $"UPDATE data.userdata SET gold = gold + {quantity} WHERE user_id = {userId};";
+
+                    using (var cmd = new NpgsqlCommand(query, db))
                     {
                         await cmd.ExecuteNonQueryAsync();
                     }
@@ -220,7 +249,7 @@ namespace Hylix_Bot
                         }
                         else
                         {
-                            element = ("No Element", (ulong)reader.GetInt64(1));
+                            element = ("None", (ulong)reader.GetInt64(1));
                         }
                     }
                 }
@@ -396,7 +425,16 @@ namespace Hylix_Bot
 
         public async Task<Monster> GetRandomMonster()
         {
-            Monster newElement;
+            Monster selectedMonster = new Monster
+            {
+                Id = 0,
+                Name = "ERROR",
+                Description = "Something went wrong...",
+                Element = "ERROR",
+                Element_Emoji = 0,
+                Affiliation = "Probably bad",
+                Spawn_Chance = 0                
+            };
 
             try
             {
@@ -404,39 +442,148 @@ namespace Hylix_Bot
                 {
                     await db.OpenAsync();
 
-                    var query = "SELECT * FROM data.monsters ORDER BY RANDOM() LIMIT 1;";
+                    var query = "SELECT id, name, description, element_id, species_id, affiliation_id, spawn_chance FROM data.monsters;";
 
-                    using (var cmd = new NpgsqlCommand(query, db))
+                    using (var cmd = new NpgsqlCommand(query, db)) 
                     {
                         var reader = await cmd.ExecuteReaderAsync();
 
-                        await reader.ReadAsync();
+                        List<Monster> monsterList = new List<Monster>();
+                        int totalWeight = 0;
 
-                        var eleData = await GetElementAsync(reader.GetInt32(3));
-
-                        newElement = new Monster()
+                        while (await reader.ReadAsync()) 
                         {
-                            Id = reader.GetInt32(0),
-                            Name = reader.GetString(1),
-                            Description = reader.GetString(2),
-                            Element = eleData.Item1,
-                            Element_Emoji = eleData.Item2,
-                            Species = await GetSpeciesAsync(reader.GetInt32(4)),
-                            Affiliation = await GetAffiliationAsync(reader.GetInt32(5))
-                        };
+                            var eleData = await GetElementAsync(reader.GetInt32(3));
+
+                            var newMonster = new Monster()
+                            {
+                                Id = reader.GetInt32(0),
+                                Name = reader.GetString(1),
+                                Description = reader.GetString(2),
+                                Element = eleData.Item1,
+                                Element_Emoji = eleData.Item2,
+                                Species = await GetSpeciesAsync(reader.GetInt32(4)),
+                                Affiliation = await GetAffiliationAsync(reader.GetInt32(5)),
+                                Spawn_Chance = reader.GetInt32(6)
+                            };
+
+                            monsterList.Add(newMonster);
+                            totalWeight += reader.GetInt32(6);
+                        }
+
+                        int randomValue = random.Next(totalWeight);
+                        int cumulativeWeight = 0;
+
+                        foreach (var monster in monsterList) 
+                        {
+                            cumulativeWeight += (int)monster.Spawn_Chance;
+                            if (randomValue < cumulativeWeight)
+                            {
+                                selectedMonster = monster;
+                                break;
+                            }
+                        }                    
                     }
                 }
 
-                return newElement;
+                return selectedMonster;
             }
             catch (Exception ex)
             {
                 WriteLine(ex.ToString());
-                return null;
+                return selectedMonster;
             }
         }
 
-        public async Task<(bool, ulong)> StoreGuildMonsterAsync(int monsterId, ulong guildId)
+        public async Task<(bool, Monster)> GetMonsterAsync(int monsterId) {
+            Monster monster = new Monster
+            {
+                Id = 0,
+                Name = "ERROR",
+                Description = "Something went wrong...",
+                Element = "ERROR",
+                Element_Emoji = 0,
+                Affiliation = "Probably bad",
+                Spawn_Chance = 0,
+                Tier = 0             
+            };
+
+            NpgsqlDataReader reader;
+
+            try 
+            {
+                using (var db = new NpgsqlConnection(dbconn))
+                {
+                    await db.OpenAsync();
+
+                    var query = $"SELECT id, name, description, element_id, species_id, affiliation_id, tier_id FROM data.monsters WHERE id={monsterId};";
+
+                    using (var cmd = new NpgsqlCommand(query, db)) 
+                    {
+                        reader = await cmd.ExecuteReaderAsync();
+
+                        await reader.ReadAsync();
+
+                        if (!reader.HasRows) {
+                            await db.CloseAsync();
+                            return (false, monster);
+                        }
+
+                        var monsterElement = await GetElementAsync(reader.GetInt32(3));
+
+                        monster = new Monster 
+                        {
+                            Id = reader.GetInt32(0),
+                            Name = reader.GetString(1),
+                            Description = reader.GetString(2),
+                            Element = monsterElement.Item1,
+                            Element_Emoji = monsterElement.Item2,
+                            Species = await GetSpeciesAsync(reader.GetInt32(4)),
+                            Affiliation = await GetAffiliationAsync(reader.GetInt32(5)),
+                            Spawn_Chance = await GetSpawnChanceAsync(reader.GetInt32(0)),
+                            Tier = reader.GetInt32(6)
+                        };
+                    }
+                }
+
+                return (true, monster);
+            }
+            catch (Exception ex) 
+            {
+                WriteLine(ex.ToString());
+                return (false, monster);
+            }
+        }
+
+        public async Task<float> GetSpawnChanceAsync(int monsterId)
+        {
+            var result = 0f;
+            try
+            {
+                using (var db = new NpgsqlConnection(dbconn))
+                {
+                    await db.OpenAsync();
+
+                    var query = $"select (select spawn_chance from data.monsters where id={monsterId})::float/(select sum(spawn_chance) from data.monsters)::float*100;";
+
+                    using (var cmd = new NpgsqlCommand(query, db))
+                    {
+                        var num = await cmd.ExecuteScalarAsync();
+
+                        result = (float)Convert.ToDouble(num);
+                    }
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                WriteLine(ex.ToString());
+                return 0;
+            }
+        }
+
+        public async Task<(bool, ulong, string)> StoreGuildMonsterAsync(int monsterId, ulong guildId, ulong messageId=0)
         {
             ulong spawnId;
 
@@ -448,7 +595,7 @@ namespace Hylix_Bot
                 {
                     await db.OpenAsync();                    
 
-                    var query = $"INSERT INTO data.monster_spawns (monster_id, guild_id, identifier) VALUES ({monsterId}, {guildId}, '{uniqueID}');";
+                    var query = $"INSERT INTO data.monster_spawns (monster_id, guild_id, identifier, message_id) VALUES ({monsterId}, {guildId}, '{uniqueID}', {messageId});";
 
                     using (var cmd = new NpgsqlCommand(query, db))
                     {
@@ -472,12 +619,112 @@ namespace Hylix_Bot
                     }
                 }
 
-                return (true, spawnId);
+                return (true, spawnId, uniqueID);
             }
             catch (Exception ex)
             {
                 WriteLine(ex.ToString());
-                return (false, 0);
+                return (false, 0, "ERROR");
+            }
+        }
+
+        public async Task<bool> UpdateGuildMonsterAsync(ulong messageId, string identifier) 
+        {
+            try 
+            {
+                using (var db = new NpgsqlConnection(dbconn))
+                {
+                    await db.OpenAsync();
+
+                    var query = $"UPDATE data.monster_spawns SET message_id={messageId} WHERE identifier='{identifier}';";
+
+                    using (var cmd = new NpgsqlCommand(query, db)) 
+                    {
+                        await cmd.ExecuteNonQueryAsync();
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex) 
+            {
+                WriteLine(ex.ToString());
+                return false;
+            }
+        }
+
+        public async Task<(bool, ulong, ulong, ulong)> GetGuildMonsterAsync(ulong fightId)
+        {
+            ulong messageId = 0;
+            ulong monsterId = 0;
+
+            try 
+            {
+                using (var db = new NpgsqlConnection(dbconn))
+                {
+                    await db.OpenAsync();
+
+                    var query = $"SELECT message_id, monster_id FROM data.monster_spawns WHERE id={fightId}";
+
+                    using (var cmd = new NpgsqlCommand(query, db))
+                    {
+                        var reader = await cmd.ExecuteReaderAsync();
+
+                        if (!reader.HasRows) 
+                        {
+                            await db.CloseAsync();
+                            return (false, 0, 0, 0);
+                        }
+
+                        await reader.ReadAsync();
+
+                        messageId = (ulong)reader.GetInt64(0);
+                        monsterId = (ulong)reader.GetInt64(1);
+                    }
+                }
+
+                return (true, messageId, fightId, monsterId);
+            }
+            catch (Exception ex)
+            {
+                WriteLine(ex.ToString());
+                return (false, 0, 0, 0);
+            }
+        }
+
+        public async Task<bool> GetMonsterValidityAsync(ulong fightId)
+        {
+            bool valid;
+            
+            try
+            {
+                using (var db = new NpgsqlConnection(dbconn))
+                {
+                    await db.OpenAsync();
+
+                    var query = $"SELECT COUNT(*) FROM data.monster_spawns WHERE id={fightId}";
+
+                    using (var cmd = new NpgsqlCommand(query, db))
+                    {
+                        var reader = await cmd.ExecuteScalarAsync();
+
+                        if (Convert.ToInt64(reader) > 0)
+                        {
+                            valid = true;
+                        }
+                        else 
+                        {
+                            valid = false;
+                        }
+                    }
+                }
+
+                return valid;
+            }
+            catch (Exception ex)
+            {
+                WriteLine(ex.ToString());
+                return false;
             }
         }
 
@@ -500,6 +747,180 @@ namespace Hylix_Bot
             catch (Exception ex)
             {
                 WriteLine(ex.ToString());
+            }
+        }
+
+        public async Task<(bool, Drop)> GenerateDropAsync()
+        {
+            Drop resultDrop = new Drop();
+
+            try
+            {
+                using (var db = new NpgsqlConnection(dbconn))
+                {
+                    await db.OpenAsync();
+
+                    var query = "SELECT id, name, emoji_id, drop_chance, count_range FROM data.drops;";
+
+                    using (var cmd = new NpgsqlCommand(query, db))
+                    {
+                        var reader = await cmd.ExecuteReaderAsync();
+
+                        if (!reader.HasRows)
+                        {
+                            WriteLine("no lines");
+                            await db.CloseAsync();
+                            return (false, resultDrop);
+                        }
+
+                        var alldropsList = new List<Drop>();
+                        int totalWeight = 0;
+
+                        while (await reader.ReadAsync())
+                        {
+                            var newDrop = new Drop()
+                            {
+                                Id = (ulong)reader.GetInt64(0),
+                                Name = reader.GetString(1),
+                                Emoji_Id = (ulong)reader.GetInt64(2),
+                                Drop_Chance = reader.GetInt32(3),
+                                Count_Range = (int[])reader.GetValue(4),
+                                Quantity = Random.Shared.Next(((int[])reader.GetValue(4))[0], ((int[])reader.GetValue(4))[1])
+                            };
+                            
+                            alldropsList.Add(newDrop);
+                            totalWeight += reader.GetInt32(3);
+                        }
+
+                        int randomValue = random.Next(totalWeight);
+                        int cumulativeWeight = 0;
+
+                        foreach (var drop in alldropsList)
+                        {
+                            cumulativeWeight += drop.Drop_Chance;
+                            
+                            if (randomValue < cumulativeWeight)
+                            {
+                                resultDrop = drop;
+                                break;
+                            }
+                        }    
+                    }
+                }
+
+                return (true, resultDrop);
+            }
+            catch (Exception ex)
+            {
+                WriteLine(ex.ToString());
+                return (false, resultDrop);
+            }
+        }
+    
+        public async Task<(bool, List<InventoryItem>)> GetInventoryAsync(ulong userId)
+        {
+            List<InventoryItem> inventoryList = new List<InventoryItem>();
+
+            try
+            {
+                using (var db = new NpgsqlConnection(dbconn))
+                {
+                    await db.OpenAsync();
+
+                    var query = $@"
+                        SELECT 
+                            ui.quantity,
+                            d.name,
+                            d.emoji_id,
+                            d.id,
+                            d.market_value
+                        FROM
+                            data.user_inventory ui
+                        JOIN
+                            data.userdata ud ON ui.user_id = ud.id
+                        JOIN
+                            data.drops d ON ui.item_id= d.id
+                        WHERE
+                            ud.user_id={userId}";
+
+                    using (var cmd = new NpgsqlCommand(query, db))
+                    {
+                        var reader = await cmd.ExecuteReaderAsync();
+
+                        if (!reader.HasRows) 
+                        {
+                            return (true, inventoryList);
+                        }
+
+                        while (await reader.ReadAsync())
+                        {
+                            var inventoryItem = new InventoryItem
+                            {
+                                Quantity = reader.GetInt64(0),
+                                Name = reader.GetString(1),
+                                Emoji_Id = reader.GetInt64(2),
+                                Id = reader.GetInt64(3),
+                                Market_Value = reader.GetInt64(4)
+                            };
+
+                            inventoryList.Add(inventoryItem);
+                        }
+                    }
+                }
+
+                return (true, inventoryList);
+            }
+            catch (Exception ex)
+            {
+                WriteLine(ex.ToString());
+                return (false, inventoryList);
+            }
+        }
+    
+        public async Task<bool> UpdateInventoryAsync(ulong userId, BigInteger itemId, int quantity)
+        {
+            try
+            {
+                using (var db = new NpgsqlConnection(dbconn))
+                {
+                    await db.OpenAsync();
+
+                    var query = $@"
+                        INSERT INTO data.user_inventory as ui (user_id, item_id, quantity)
+                        VALUES
+                            (
+                                (SELECT id FROM data.userdata WHERE user_id = {userId}), 
+                                {itemId}, 
+                                {quantity}
+                            )
+                        ON CONFLICT (user_id, item_id) 
+                        DO UPDATE SET 
+                            quantity = ui.quantity + EXCLUDED.quantity;";
+
+                    using (var cmd = new NpgsqlCommand(query, db))
+                    {
+                        await cmd.ExecuteNonQueryAsync();
+                    }
+
+                    using (var db2 = new NpgsqlConnection(dbconn))
+                    {
+                        await db2.OpenAsync();
+
+                        var query2 = "DELETE FROM data.user_inventory WHERE quantity <= 0;";
+
+                        using (var cmd = new NpgsqlCommand(query2, db))
+                        {
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+                    }
+                }
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                WriteLine(ex.ToString());
+                return false;
             }
         }
     }

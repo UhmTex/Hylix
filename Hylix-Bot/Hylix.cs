@@ -51,6 +51,7 @@ namespace Hylix_Bot
                 EnableMentionPrefix = true,
                 EnableDms = false,
                 EnableDefaultHelp = false,
+                
             };
 
             // Client Initiation
@@ -88,7 +89,7 @@ namespace Hylix_Bot
             {
                 var _messageHandler = new MessageHandler();
 
-                //await _messageHandler.HandleNewUser(args.Author);
+                await _messageHandler.HandleNewUser(args.Author);
                 await _messageHandler.MonsterSpawn(args);
             }
         }

@@ -29,12 +29,12 @@ namespace Hylix_Bot.Handler
 
                 var embed = new DiscordEmbedBuilder()
                 {
-                    Title = $"A **{monsterData.Name}** has appeared! (Status: <:Valid:1281738662186324000>)",
+                    Title = $"A **{monsterData.Name}** (**Tier {Enum.GetName(typeof(TierTypes), monsterData.Tier)}**) appeared! (Status: <:Valid:1281738662186324000>)",
                     Color = Global.colorlessEmbed,
                     Footer = new DiscordEmbedBuilder.EmbedFooter()
                 };
 
-                embed.AddField("**__Monster Description__**", monsterData.Description);
+                embed.AddField("**__Monster Description__**", $">>> {monsterData.Description}");
                 embed.AddField("**__Element__**", $"<:Element:{monsterData.Element_Emoji}> • {monsterData.Element}", true);
                 embed.AddField("**__Species__**", $"{monsterData.Species}", true);
                 embed.AddField("**__Affiliation__**", $"{monsterData.Affiliation}", true);
@@ -45,10 +45,19 @@ namespace Hylix_Bot.Handler
                 //await ctx.EditResponseAsync(fullResponse);
                 var botMessage = await args.Channel.SendMessageAsync(embed);
 
+                await dbHandler.UpdateGuildMonsterAsync(botMessage.Id, spawn_data.Item3);
+
                 await Task.Delay(50000);
 
-                embed.Title = $"A **{monsterData.Name}** has appeared! (Status: <:Invalid:1281738680469422081>)";
-                embed.Footer.Text = $"ID: {spawn_data.Item2} • Despawned";
+                var validityCheck = await dbHandler.GetMonsterValidityAsync(spawn_data.Item2);
+
+                if (!validityCheck) 
+                {
+                    return;
+                }
+
+                embed.Title = $"The **{monsterData.Name}** Escaped! (Status: <:Invalid:1281738680469422081>)";
+                embed.Footer.Text = $"ID: {spawn_data.Item2} • Escaped";
 
                 await dbHandler.DeleteGuildMonsterAsync(spawn_data.Item2);
 

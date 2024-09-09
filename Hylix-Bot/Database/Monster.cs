@@ -8,7 +8,8 @@
         public ulong Element_Emoji { get; set; }
         public string Species { get; set; }
         public string Affiliation { get; set; }
-
         public string Description { get; set; }
+        public float Spawn_Chance { get; set; }
+        public int Tier { get; set; }
     }
 }

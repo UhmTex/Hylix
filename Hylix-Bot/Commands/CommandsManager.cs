@@ -5,8 +5,8 @@ using DSharpPlus.SlashCommands;
 using DSharpPlus.SlashCommands.Attributes;
 using Hylix_Bot.Database;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace Hylix_Bot.Commands
 {
@@ -136,12 +136,28 @@ namespace Hylix_Bot.Commands
             await ctx.Channel.SendMessageAsync(secondInfo);
         }
 
+        [SlashCommand("Drops", "gen random drops")]
+        [SlashRequireOwner]
+        public async Task GetDropsTest(InteractionContext ctx, [Option("Amount", "drop amount")] long Id)
+        {
+            List<Drop> generatedDrops = await AdventureHandler.GenerateDropsAsync(ctx, (int)Id);
 
+            string fulltext = string.Empty;
+
+            foreach (var drop in generatedDrops)
+            {
+                fulltext += $"{(drop.Emoji_Id==0 ? "" : $"<:Drop:{drop.Emoji_Id}> ")}{drop.Name} x{drop.Quantity}\n";
+            }
+
+            await ctx.CreateResponseAsync(fulltext);
+        }
 
         [SlashCommand("Adventure", "Goes on an adventure!")]
         [SlashCooldown(1, 60, SlashCooldownBucketType.User)]
         public async Task StartAdventure(InteractionContext ctx)
         {
+            await AdventureHandler.GenerateDropsAsync(ctx, 2);
+
             var loadEmbed1 = new DiscordEmbedBuilder()
             {
                 Title = "Out on an adventure"
@@ -152,7 +168,7 @@ namespace Hylix_Bot.Commands
 
         [SlashCommand("Spawn", "Adventure spawn cmd")]
         [SlashRequireOwner]
-        public async Task testMon(InteractionContext ctx)
+        public async Task testMon(InteractionContext ctx, [Option("ID", "The ID of the monster to spawn")] long id)
         {
 
             var embedStart = new DiscordEmbedBuilder()
@@ -165,18 +181,26 @@ namespace Hylix_Bot.Commands
 
             var dbHandler = new DBHandler();
 
-            var monsterData = await dbHandler.GetRandomMonster();
+            var receivedData = await dbHandler.GetMonsterAsync((int)id);
+            
+            if (!receivedData.Item1) 
+            {
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("The provided id does not exist or an error has occured!"));
+                return;
+            }
+
+            Monster monsterData = receivedData.Item2;
 
             var spawn_data = await dbHandler.StoreGuildMonsterAsync(monsterData.Id, ctx.Guild.Id);
 
             var embed = new DiscordEmbedBuilder()
             {
-                Title = $"A **{monsterData.Name}** has appeared! (Status: <:Valid:1281738662186324000>)",
+                Title = $"A **__{monsterData.Name}__** (**Tier {Enum.GetName(typeof(TierTypes), monsterData.Tier)}**) appeared! (Status: <:Valid:1281738662186324000>)",
                 Color = Global.colorlessEmbed,
                 Footer = new DiscordEmbedBuilder.EmbedFooter()
             };
 
-            embed.AddField("**__Monster Description__**", monsterData.Description);
+            embed.AddField("**__Monster Description__**", $"```{monsterData.Description}```");
             embed.AddField("**__Element__**", $"<:Element:{monsterData.Element_Emoji}> • {monsterData.Element}", true);
             embed.AddField("**__Species__**", $"{monsterData.Species}", true);
             embed.AddField("**__Affiliation__**", $"{monsterData.Affiliation}", true);
@@ -184,12 +208,21 @@ namespace Hylix_Bot.Commands
 
             var fullResponse = new DiscordWebhookBuilder().WithContent("").AddEmbed(embed);
 
-            await ctx.EditResponseAsync(fullResponse);            
+            var response = await ctx.EditResponseAsync(fullResponse);
+
+            await dbHandler.UpdateGuildMonsterAsync(response.Id, spawn_data.Item3);
 
             await Task.Delay(50000);
 
-            embed.Title = $"A **{monsterData.Name}** has appeared! (Status: <:Invalid:1281738680469422081>)";
-            embed.Footer.Text = $"ID: {spawn_data.Item2} • Despawned";
+            var validityCheck = await dbHandler.GetMonsterValidityAsync(spawn_data.Item2);
+
+            if (!validityCheck) 
+            {
+                return;
+            }
+
+            embed.Title = $"The **{monsterData.Name}** Escaped! (Status: <:Invalid:1281738680469422081>)";
+            embed.Footer.Text = $"ID: {spawn_data.Item2} • Escaped";
 
             await dbHandler.DeleteGuildMonsterAsync(spawn_data.Item2);
 
@@ -199,11 +232,76 @@ namespace Hylix_Bot.Commands
         }
 
         [SlashCommand("Fight", "Fight against a monster!")]
-        public async Task Fight(InteractionContext ctx, [Option("Id", "The fight Id to enage in")] long id)
+        public async Task Fight(InteractionContext ctx, [Option("ID", "The fight ID to enage in")] long id)
         {
-            await ctx.CreateResponseAsync("test");
+            var dbHandler = new DBHandler();
+
+            var fightData = await dbHandler.GetGuildMonsterAsync((ulong)id);
+
+            if (!fightData.Item1)
+            {
+                await ctx.CreateResponseAsync("You have entered an invalid ID, or the monster was already defeated!", ephemeral: true);
+                return;
+            }
+
+            var receivedData = await dbHandler.GetMonsterAsync((int)fightData.Item4);
+
+            Monster monsterData = receivedData.Item2;
+
+            var embed = new DiscordEmbedBuilder()
+            {
+                Title = $"A **__{monsterData.Name}__** was defeated! (Status: <:Defeated:1281738680469422081>)",
+                Color = Global.colorlessEmbed,
+                Footer = new DiscordEmbedBuilder.EmbedFooter()
+            };
+
+            embed.AddField("**__Monster Description__**", $"```{monsterData.Description}```");
+            embed.AddField("**__Element__**", $"<:Element:{monsterData.Element_Emoji}> • {monsterData.Element}", true);
+            embed.AddField("**__Species__**", $"{monsterData.Species}", true);
+            embed.AddField("**__Affiliation__**", $"{monsterData.Affiliation}", true);
+            embed.Footer.Text = $"ID: {id} • Defeated by {ctx.Member.Username}!";
+
+            var message = await ctx.Channel.GetMessageAsync(fightData.Item2);
+
+            //await ctx.Channel.DeleteMessageAsync(message);
+            await message.ModifyAsync(new Optional<DiscordEmbed>(embed));
+
+            await ctx.CreateResponseAsync("this is a working test");
+
+            await dbHandler.DeleteGuildMonsterAsync(fightData.Item3);
         }
-        
+
+        [SlashCommand("monsterinfo", "Gets all relevant information about a monster")]
+        public async Task GetMonsterInfo(InteractionContext ctx, [Option("ID", "The ID of the monster you wish you get information for")] long id) 
+        {
+            var dbHandler = new DBHandler();
+
+            var monsterData = await dbHandler.GetMonsterAsync((int)id);
+
+            if (!monsterData.Item1) 
+            {
+                await ctx.CreateResponseAsync("You have an entered an invalid monster ID!", ephemeral: true);
+                return;
+            }
+
+            var monsterInfo = monsterData.Item2;
+
+            var embed = new DiscordEmbedBuilder() 
+            {
+                Title = $"Full monster info for **__{monsterInfo.Name}__**",
+                Color = Global.colorlessEmbed,
+                Footer = new DiscordEmbedBuilder.EmbedFooter()
+            };
+
+            embed.AddField("**__Monster Description__**", $"```{monsterInfo.Description}```");
+            embed.AddField("**__Element__**", $"<:Element:{monsterInfo.Element_Emoji}> • {monsterInfo.Element}", true);
+            embed.AddField("**__Species__**", $"{monsterInfo.Species}", true);
+            embed.AddField("**__Affiliation__**", $"{monsterInfo.Affiliation}", true);
+
+            embed.Footer.Text = $"Monster Tier {Enum.GetName(typeof(TierTypes), monsterInfo.Tier)}  •  Spawn Chance {Math.Round(monsterInfo.Spawn_Chance, 3)}%";
+
+            await ctx.CreateResponseAsync(embed);
+        }
 
         [SlashCommand("allspecies", "Gets the list of all species and their IDs")]
         public async Task GetAllSpecies(InteractionContext ctx)

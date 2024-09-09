@@ -3,6 +3,7 @@ using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
 using DSharpPlus.SlashCommands;
 using Hylix_Bot.Database;
+using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +15,7 @@ namespace Hylix_Bot.Commands
 {
     public class SelfCommandsHandler : ApplicationCommandModule
     {
-        [SlashCommand("Profile", "Get your profile information")]
+        [SlashCommand("Profile", "Get your full profile information")]
         public async Task GetProfile(InteractionContext ctx)
         {
             var dbHandler = new DBHandler();
@@ -36,6 +37,81 @@ namespace Hylix_Bot.Commands
             profileEmbed.AddField("Class", className);
 
             await ctx.CreateResponseAsync(profileEmbed);
+        }
+
+        [SlashCommand("Inventory", "Gets your inventory")]
+        public async Task GetInventory(InteractionContext ctx)
+        {
+            var dbHandler = new DBHandler();
+
+            var inventoryResult = await dbHandler.GetInventoryAsync(ctx.Member.Id);
+
+            bool inventoryValidity = inventoryResult.Item1;
+
+            List<InventoryItem> inventoryList = inventoryResult.Item2;
+
+            string text = "";
+
+            if (!inventoryValidity)
+            {
+                await ctx.CreateResponseAsync("something went wrong");
+                return;
+            }
+
+            if (inventoryList.Count == 0)
+            {
+                await ctx.CreateResponseAsync("No items in inventory");
+                return;
+            }      
+
+            foreach (var item in inventoryList)
+            {
+                text += $"{inventoryList.IndexOf(item) + 1} - {item.Name} - {item.Quantity}x\n";
+            }
+
+            await ctx.CreateResponseAsync(text);
+        }
+
+        [SlashCommand("Sell", "Sell items for gold")]
+        public async Task Sell(InteractionContext ctx, 
+        [Option("name", "The name of the item in your inventory (case insensitive)")] string name,
+        [Option("amount", "The amount you wish to sell")] long amount)
+        {
+            
+            if (amount <= 0)
+            {
+                await ctx.CreateResponseAsync("You have entered an invalid amount", true);
+                return;
+            }
+
+            var dbHandler = new DBHandler();
+
+            var inventoryList = new List<InventoryItem>();
+
+            inventoryList = (await dbHandler.GetInventoryAsync(ctx.Member.Id)).Item2;
+
+            var filteredList = inventoryList.Where(x => x.Name.ToLower() == name.ToLower()).ToList();
+
+            if (!filteredList.IsNullOrEmpty())
+            {
+                var itemToSell = filteredList[0];
+
+                if (itemToSell.Quantity < amount)
+                {
+                    await ctx.CreateResponseAsync("You can't sell more than you have!", true);
+                    return;
+                }
+
+                var verifySell = await dbHandler.UpdateUserGold(ctx.Member.Id, amount * itemToSell.Market_Value);
+                
+                await dbHandler.UpdateInventoryAsync(ctx.Member.Id, itemToSell.Id, (int)amount*(-1));
+
+                await ctx.CreateResponseAsync(filteredList[0].Name);
+            }
+            else 
+            {
+                await ctx.CreateResponseAsync("The item was not found in your inventory, try again", true);
+            }
         }
 
         /*[Command("Setclass")]
