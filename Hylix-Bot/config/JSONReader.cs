@@ -12,7 +12,7 @@ namespace Hylix_Bot
 
         public async Task ReadJSON()
         {
-            using (StreamReader sr = new StreamReader("config.json"))
+            using (StreamReader sr = new StreamReader("bin/Debug/net8.0/config.json"))
             {
                 string JSON = await sr.ReadToEndAsync();
                 JSONStruct data = JsonConvert.DeserializeObject<JSONStruct>(JSON);
