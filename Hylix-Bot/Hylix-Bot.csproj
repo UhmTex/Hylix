@@ -45,6 +45,8 @@
     <PackageReference Include="DSharpPlus.SlashCommands" Version="4.5.0" />
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="Npgsql" Version="8.0.3" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.5" />
+    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.4" />
     <PackageReference Include="Supabase" Version="1.1.1" />
     <PackageReference Include="System.ComponentModel.Composition" Version="8.0.0" />
     <PackageReference Include="System.Data.DataSetExtensions" Version="4.5.0" />

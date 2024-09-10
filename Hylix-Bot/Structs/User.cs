@@ -1,4 +1,6 @@
 ﻿using System.Numerics;
+using Supabase.Postgrest.Attributes;
+using Supabase.Postgrest.Models;
 
 namespace Hylix_Bot.Database
 {
@@ -12,8 +14,18 @@ namespace Hylix_Bot.Database
     {
         public ulong gold {  get; set; }
         public int speciesId { get; set; }
-        public int affiliationId { get; set; }
+        public int alignmentId { get; set; }
         public int classId { get; set; }
+    }
+
+    [Table("data.ranks")]
+    public class userTest : BaseModel
+    {
+        [PrimaryKey("id")]
+        public int Id { get; set; }
+
+        [Column("name")]
+        public string Name { get; set; }
     }
 
     public class InventoryItem

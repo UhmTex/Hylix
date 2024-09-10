@@ -37,7 +37,7 @@ namespace Hylix_Bot.Handler
                 embed.AddField("**__Monster Description__**", $">>> {monsterData.Description}");
                 embed.AddField("**__Element__**", $"<:Element:{monsterData.Element_Emoji}> • {monsterData.Element}", true);
                 embed.AddField("**__Species__**", $"{monsterData.Species}", true);
-                embed.AddField("**__Affiliation__**", $"{monsterData.Affiliation}", true);
+                embed.AddField("**__Alignment__**", $"{monsterData.Alignment}", true);
                 embed.Footer.Text = $"ID: {spawn_data.Item2} • Use the command /fight [ID] to fight! • Despawns after 50 seconds!";
 
                 var fullResponse = new DiscordWebhookBuilder().WithContent("").AddEmbed(embed);

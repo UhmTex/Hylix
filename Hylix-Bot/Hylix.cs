@@ -25,6 +25,8 @@ namespace Hylix_Bot
             var JSONReader = new JSONReader();
             await JSONReader.ReadJSON();            
 
+            await SupabaseHandler.SupabaseInit();
+
             string token = JSONReader.token;
             if (string.IsNullOrWhiteSpace(token))
             {

@@ -1,15 +1,18 @@
-﻿using DSharpPlus.CommandsNext;
-using DSharpPlus.CommandsNext.Attributes;
-using DSharpPlus.Entities;
+﻿using DSharpPlus.Entities;
 using DSharpPlus.SlashCommands;
 using Hylix_Bot.Database;
 using Microsoft.IdentityModel.Tokens;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
-using System.Text;
 using System.Threading.Tasks;
+using System.IO;
+using System.Text;
+
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Drawing.Processing;
+
+using static System.Console;
 
 namespace Hylix_Bot.Commands
 {
@@ -23,20 +26,48 @@ namespace Hylix_Bot.Commands
             var userProfile = await dbHandler.GetUserProfileAsync(ctx.Member.Id);
 
             var speciesName = await dbHandler.GetSpeciesAsync(userProfile.speciesId);
-            var affiliationName = await dbHandler.GetAffiliationAsync(userProfile.affiliationId);
+            var alignmentName = await dbHandler.GetAlignmentAsync(userProfile.alignmentId);
             var className = await dbHandler.GetClassAsync(userProfile.classId);
 
             var profileEmbed = new DiscordEmbedBuilder()
             {
-                Title=$"{ctx.Member.Username}'s Profile"
-            };
+                Title=$"Profile",
+                Color = Global.colorlessEmbed
+            };           
+
+            profileEmbed.WithAuthor(ctx.Member.DisplayName, iconUrl: ctx.Member.AvatarUrl);
 
             profileEmbed.AddField("Gold", userProfile.gold.ToString());
-            profileEmbed.AddField("Species", speciesName);
-            profileEmbed.AddField("Affiliation", affiliationName);
-            profileEmbed.AddField("Class", className);
+            profileEmbed.AddField("Species", speciesName, true);
+            profileEmbed.AddField("Alignment", alignmentName, true);
+            profileEmbed.AddField("Class", className, true );
 
             await ctx.CreateResponseAsync(profileEmbed);
+        }
+
+        [SlashCommand("imgtest", "nothing")]
+        public async Task ImgTest(InteractionContext ctx)
+        {
+            var url = SupabaseHandler.supabase.Storage.From("images").GetPublicUrl("TestImage.png");
+
+            WriteLine("test1");
+            var res = await SupabaseHandler.supabase.From<userTest>().Get();
+            WriteLine("test2");
+            List<userTest> check = res.Models;
+
+            var text = string.Empty;
+
+            foreach (var item in check)
+            {
+                text += $"{item.Id} - {item.Name}";
+            }
+
+            WriteLine($"test {check} {check.Count}");
+            WriteLine(check.Count);
+
+            await ctx.CreateResponseAsync(text);
+
+            //await ctx.CreateResponseAsync(url);
         }
 
         [SlashCommand("Inventory", "Gets your inventory")]
@@ -58,18 +89,38 @@ namespace Hylix_Bot.Commands
                 return;
             }
 
-            if (inventoryList.Count == 0)
-            {
-                await ctx.CreateResponseAsync("No items in inventory");
-                return;
-            }      
+            inventoryList.Sort((x, y) => x.Name.CompareTo(y.Name));
 
             foreach (var item in inventoryList)
             {
-                text += $"{inventoryList.IndexOf(item) + 1} - {item.Name} - {item.Quantity}x\n";
+                var noEmoji = string.Empty;
+                var hasEmoji = $"<:{item.Name.Replace(" ","_")}:{item.Emoji_Id}> ";
+
+                var emojiIcon = item.Emoji_Id==0 ? noEmoji : hasEmoji;
+
+                text += $"{emojiIcon}{item.Name} • {item.Quantity}x\n";
             }
 
-            await ctx.CreateResponseAsync(text);
+            if (inventoryList.Count == 0)
+            {
+                text = "No items in inventory";
+            }            
+
+            //{inventoryList.IndexOf(item) + 1}. 
+
+            var embed = new DiscordEmbedBuilder()
+            {
+                Title = $"Inventory",
+                Description = text,
+                Footer = new DiscordEmbedBuilder.EmbedFooter(),
+                Color = Global.colorlessEmbed
+            };
+
+            embed.Footer.Text = "Sorted by alphabetical order (A-Z)";
+
+            embed.WithAuthor(ctx.Member.DisplayName, iconUrl: ctx.Member.AvatarUrl);
+
+            await ctx.CreateResponseAsync(embed);
         }
 
         [SlashCommand("Sell", "Sell items for gold")]
@@ -98,15 +149,17 @@ namespace Hylix_Bot.Commands
 
                 if (itemToSell.Quantity < amount)
                 {
-                    await ctx.CreateResponseAsync("You can't sell more than you have!", true);
+                    await ctx.CreateResponseAsync("You can't sell more than you own!", true);
                     return;
                 }
 
-                var verifySell = await dbHandler.UpdateUserGold(ctx.Member.Id, amount * itemToSell.Market_Value);
+                var sellAmount = amount * itemToSell.Market_Value;
+
+                var verifySell = await dbHandler.UpdateUserGold(ctx.Member.Id, sellAmount);
                 
                 await dbHandler.UpdateInventoryAsync(ctx.Member.Id, itemToSell.Id, (int)amount*(-1));
 
-                await ctx.CreateResponseAsync(filteredList[0].Name);
+                await ctx.CreateResponseAsync($"You have successfully sold {itemToSell.Name} for {sellAmount} gold!");
             }
             else 
             {

@@ -167,7 +167,7 @@ namespace Hylix_Bot
             }
         }
 
-        public async Task<string> GetAffiliationAsync(int affiliationId)
+        public async Task<string> GetAlignmentAsync(int alignmentId)
         {
             try
             {
@@ -175,7 +175,7 @@ namespace Hylix_Bot
                 {
                     await conn.OpenAsync();
 
-                    var query = $"SELECT (name) FROM data.affiliation WHERE id={affiliationId};";
+                    var query = $"SELECT (name) FROM data.alignment WHERE id={alignmentId};";
 
                     using (var cmd = new NpgsqlCommand(query, conn))
                     {
@@ -273,7 +273,7 @@ namespace Hylix_Bot
                 {
                     await conn.OpenAsync();
 
-                    var query = $"SELECT species_id, affiliation_id, class_id, gold FROM data.userdata WHERE user_id={UserId};";
+                    var query = $"SELECT species_id, alignment_id, class_id, gold FROM data.userdata WHERE user_id={UserId};";
 
                     using (var cmd = new NpgsqlCommand(query, conn))
                     {
@@ -285,7 +285,7 @@ namespace Hylix_Bot
                         {                            
                             gold = (ulong)reader.GetInt64(3),
                             speciesId = reader.GetInt32(0),
-                            affiliationId = reader.GetInt32(1),
+                            alignmentId = reader.GetInt32(1),
                             classId = reader.GetInt32(2)
                         };
                     }                    
@@ -300,7 +300,7 @@ namespace Hylix_Bot
                 { 
                     gold = 0,
                     speciesId = 1,
-                    affiliationId = 1,
+                    alignmentId = 1,
                     classId = 1
                 };
 
@@ -432,7 +432,7 @@ namespace Hylix_Bot
                 Description = "Something went wrong...",
                 Element = "ERROR",
                 Element_Emoji = 0,
-                Affiliation = "Probably bad",
+                Alignment = "Probably bad",
                 Spawn_Chance = 0                
             };
 
@@ -442,7 +442,7 @@ namespace Hylix_Bot
                 {
                     await db.OpenAsync();
 
-                    var query = "SELECT id, name, description, element_id, species_id, affiliation_id, spawn_chance FROM data.monsters;";
+                    var query = "SELECT id, name, description, element_id, species_id, alignment_id, spawn_chance FROM data.monsters;";
 
                     using (var cmd = new NpgsqlCommand(query, db)) 
                     {
@@ -463,7 +463,7 @@ namespace Hylix_Bot
                                 Element = eleData.Item1,
                                 Element_Emoji = eleData.Item2,
                                 Species = await GetSpeciesAsync(reader.GetInt32(4)),
-                                Affiliation = await GetAffiliationAsync(reader.GetInt32(5)),
+                                Alignment = await GetAlignmentAsync(reader.GetInt32(5)),
                                 Spawn_Chance = reader.GetInt32(6)
                             };
 
@@ -503,7 +503,7 @@ namespace Hylix_Bot
                 Description = "Something went wrong...",
                 Element = "ERROR",
                 Element_Emoji = 0,
-                Affiliation = "Probably bad",
+                Alignment = "Probably bad",
                 Spawn_Chance = 0,
                 Tier = 0             
             };
@@ -516,7 +516,7 @@ namespace Hylix_Bot
                 {
                     await db.OpenAsync();
 
-                    var query = $"SELECT id, name, description, element_id, species_id, affiliation_id, tier_id FROM data.monsters WHERE id={monsterId};";
+                    var query = $"SELECT id, name, description, element_id, species_id, alignment_id, tier_id FROM data.monsters WHERE id={monsterId};";
 
                     using (var cmd = new NpgsqlCommand(query, db)) 
                     {
@@ -539,7 +539,7 @@ namespace Hylix_Bot
                             Element = monsterElement.Item1,
                             Element_Emoji = monsterElement.Item2,
                             Species = await GetSpeciesAsync(reader.GetInt32(4)),
-                            Affiliation = await GetAffiliationAsync(reader.GetInt32(5)),
+                            Alignment = await GetAlignmentAsync(reader.GetInt32(5)),
                             Spawn_Chance = await GetSpawnChanceAsync(reader.GetInt32(0)),
                             Tier = reader.GetInt32(6)
                         };

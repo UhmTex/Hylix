@@ -116,7 +116,7 @@ namespace Hylix_Bot.Commands
                 Color = Global.colorlessEmbed
             };
 
-            firstInfo.AddField("**__Hylixia__**", "Hylixia is a fantasy realm rich with excitement, controlled by the 5 primordial gods of creation. Brimming with an extraordinary abundance of magic and treasure, adventurers set out to conquer dungeons, fight dragons and become the strongest they possibly can be!\n\nHylix is aspiring to be a continuous, ever-developed, and user market governed RPG mini-game bot on a global scope that will consist of many popular mechanics shown in the largest of RPG games. From crafting of completely unique items like weapons and armors no-one has had before, to fighting hundreds of different unique legendary monsters from an ever growing list of species, classes, affiliations, materials and elements. The sky is the limit for the aspiring adventurers that will dive into the world of Hylix.");
+            firstInfo.AddField("**__Hylixia__**", "Hylixia is a fantasy realm rich with excitement, controlled by the 5 primordial gods of creation. Brimming with an extraordinary abundance of magic and treasure, adventurers set out to conquer dungeons, fight dragons and become the strongest they possibly can be!\n\nHylix is aspiring to be a continuous, ever-developed, and user market governed RPG mini-game bot on a global scope that will consist of many popular mechanics shown in the largest of RPG games. From crafting of completely unique items like weapons and armors no-one has had before, to fighting hundreds of different unique legendary monsters from an ever growing list of species, classes, alignments, materials and elements. The sky is the limit for the aspiring adventurers that will dive into the world of Hylix.");
             firstInfo.AddField("**__Development Information__**", "Hylix is actively developed by <@198177090921562112>\nThe bot may be offline often, it means it is under active maintenance or in deployment.");
 
             //DiscordMessage msg = ctx.Guild.m
@@ -129,7 +129,7 @@ namespace Hylix_Bot.Commands
             };
 
             secondInfo.AddField("Self Information", "Using /profile will grant you access to view your current profile and information");
-            secondInfo.AddField("ID Information", "using the commands /allclasses,/allspecies,/allaffiliations you can see all current available objects and their IDs");
+            secondInfo.AddField("ID Information", "using the commands /allclasses,/allspecies,/allalignments you can see all current available objects and their IDs");
             secondInfo.AddField("Monster Spawns", "Monsters will spawn as you chat, or when you use the command /adventure(IN-DEVELOPMENT) and /fight [Fight ID](IN-DEVELOPMENT). Doing so will allow you to fight them for loot, treasures, and glory");
 
             await ctx.Channel.SendMessageAsync(firstInfo);
@@ -203,7 +203,7 @@ namespace Hylix_Bot.Commands
             embed.AddField("**__Monster Description__**", $"```{monsterData.Description}```");
             embed.AddField("**__Element__**", $"<:Element:{monsterData.Element_Emoji}> • {monsterData.Element}", true);
             embed.AddField("**__Species__**", $"{monsterData.Species}", true);
-            embed.AddField("**__Affiliation__**", $"{monsterData.Affiliation}", true);
+            embed.AddField("**__Alignment__**", $"{monsterData.Alignment}", true);
             embed.Footer.Text = $"ID: {spawn_data.Item2} • Use the command /fight [ID] to fight! • Despawns after 50 seconds!";
 
             var fullResponse = new DiscordWebhookBuilder().WithContent("").AddEmbed(embed);
@@ -258,7 +258,7 @@ namespace Hylix_Bot.Commands
             embed.AddField("**__Monster Description__**", $"```{monsterData.Description}```");
             embed.AddField("**__Element__**", $"<:Element:{monsterData.Element_Emoji}> • {monsterData.Element}", true);
             embed.AddField("**__Species__**", $"{monsterData.Species}", true);
-            embed.AddField("**__Affiliation__**", $"{monsterData.Affiliation}", true);
+            embed.AddField("**__Alignment__**", $"{monsterData.Alignment}", true);
             embed.Footer.Text = $"ID: {id} • Defeated by {ctx.Member.Username}!";
 
             var message = await ctx.Channel.GetMessageAsync(fightData.Item2);
@@ -296,7 +296,7 @@ namespace Hylix_Bot.Commands
             embed.AddField("**__Monster Description__**", $"```{monsterInfo.Description}```");
             embed.AddField("**__Element__**", $"<:Element:{monsterInfo.Element_Emoji}> • {monsterInfo.Element}", true);
             embed.AddField("**__Species__**", $"{monsterInfo.Species}", true);
-            embed.AddField("**__Affiliation__**", $"{monsterInfo.Affiliation}", true);
+            embed.AddField("**__Alignment__**", $"{monsterInfo.Alignment}", true);
 
             embed.Footer.Text = $"Monster Tier {Enum.GetName(typeof(TierTypes), monsterInfo.Tier)}  •  Spawn Chance {Math.Round(monsterInfo.Spawn_Chance, 3)}%";
 
